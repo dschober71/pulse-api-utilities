@@ -487,13 +487,64 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Custom Checkbox Styles for Auth Storage */
+        .auth-storage-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .auth-storage-option:hover {
+            background-color: #f8f9fa;
+        }
+
+        .auth-storage-option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #1f5f99;
+        }
+
+        .auth-storage-option span {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #374151;
+            user-select: none;
+        }
+
+        .auth-storage-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1 class="title">Tableau Pulse Utilities <span class="wave">⚡</span></h1>
         <p class="subtitle">Powerful web tools for managing Tableau Pulse - no command line needed!</p>
-        
+
+        <!-- Stored Authentication Status -->
+        <div id="authStatus" style="display: none; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 12px; margin: 15px 0; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>🔐 Stored Authentication:</strong>
+                    <span id="authStatusText"></span>
+                    <span id="authExpiry" style="color: #666; font-size: 0.9em;"></span>
+                </div>
+                <button onclick="clearStoredAuth()" class="button secondary" style="padding: 6px 12px; font-size: 0.85em;">Clear Stored Auth</button>
+            </div>
+        </div>
+
         <!-- Navigation Tabs -->
         <div class="tabs">
             <button class="tab-button active" onclick="showTab('home')">🏠 Home</button>
@@ -507,6 +558,7 @@
             <button class="tab-button" onclick="showTab('tcm-logs')">📋 TCM Logs</button>
             <button class="tab-button" onclick="showTab('zero-followers')">🔍 Zero Followers</button>
             <button class="tab-button" onclick="showTab('remove-all-followers')">🧹 Remove All Followers</button>
+            <button class="tab-button" onclick="showTab('orphaned-metrics')">🗑️ Orphaned Metrics</button>
             <button class="tab-button" onclick="showTab('export-definitions')">📑 Export Definitions</button>
             <button class="tab-button" onclick="showTab('favorite-metrics')">⭐ Favorite Metrics</button>
         </div>
@@ -661,6 +713,18 @@
                         </div>
                         <button class="utility-button">Get Started</button>
                     </div>
+
+                    <div class="utility-card" onclick="showTab('orphaned-metrics')">
+                        <div class="utility-icon">🗑️</div>
+                        <h3>Orphaned Metrics Cleanup</h3>
+                        <p>Find and delete metrics whose datasource no longer exists</p>
+                        <div class="utility-features">
+                            <span>🔍 Detect orphaned metrics</span>
+                            <span>⚠️ Safe deletion with confirmation</span>
+                            <span>🗑️ Bulk cleanup</span>
+                        </div>
+                        <button class="utility-button">Get Started</button>
+                    </div>
                 </div>
 
                 <div class="test-section">
@@ -712,6 +776,19 @@
                             <input type="password" id="source_pat_secret" name="source_pat_secret" placeholder="PAT Secret">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="source_use_stored" onchange="handleUseStored('source')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="source_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
+
                     <div class="form-row">
                         <input type="text" id="source_datasource" name="source_datasource" placeholder="Source Datasource Name" required>
                     </div>
@@ -749,6 +826,19 @@
                             <input type="password" id="dest_pat_secret" name="dest_pat_secret" placeholder="PAT Secret">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="dest_use_stored" onchange="handleUseStored('dest')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="dest_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
+
                     <div class="form-row">
                         <input type="text" id="dest_datasource" name="dest_datasource" placeholder="Destination Datasource Name" required>
                     </div>
@@ -810,6 +900,18 @@
                         <div class="form-row">
                             <input type="password" id="manage_pat_token" name="pat_token" placeholder="PAT Token">
                         </div>
+                    </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="manage_use_stored" onchange="handleUseStored('manage')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="manage_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -917,6 +1019,18 @@
                             <input type="password" id="swap_pat_secret" name="pat_secret" placeholder="PAT Secret">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="swap_use_stored" onchange="handleUseStored('swap')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="swap_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Copy Configuration -->
@@ -994,6 +1108,18 @@
                         <div class="form-row">
                             <input type="password" id="prefs_pat_token" name="pat_token" placeholder="PAT Value">
                         </div>
+                    </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="prefs_use_stored" onchange="handleUseStored('prefs')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="prefs_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -1110,6 +1236,18 @@
                             <input type="password" id="cert_pat_token" name="pat_token" placeholder="PAT Value">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="cert_use_stored" onchange="handleUseStored('cert')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="cert_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Group Configuration Section -->
@@ -1183,6 +1321,18 @@
                         <div class="form-row">
                             <input type="password" id="scoped_pat_token" name="pat_token" placeholder="PAT Value">
                         </div>
+                    </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="scoped_use_stored" onchange="handleUseStored('scoped')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="scoped_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -1292,6 +1442,18 @@
                         <div class="form-row">
                             <input type="password" id="analytics_pat_token" name="pat_token" placeholder="PAT Value">
                         </div>
+                    </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="analytics_use_stored" onchange="handleUseStored('analytics')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="analytics_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -1460,6 +1622,18 @@
                             <input type="password" id="zero_pat_token" name="pat_token" placeholder="PAT Token">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="zero_use_stored" onchange="handleUseStored('zero')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="zero_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Definition Selection -->
@@ -1543,6 +1717,18 @@
                             <input type="password" id="raf_pat_token" name="pat_token" placeholder="PAT Token">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="raf_use_stored" onchange="handleUseStored('raf')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="raf_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Definition Selection -->
@@ -1610,6 +1796,18 @@
                             <input type="password" id="export_pat_token" name="pat_token" placeholder="PAT Token">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="export_use_stored" onchange="handleUseStored('export')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="export_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Export Options Section -->
@@ -1633,6 +1831,98 @@
                     <button type="button" class="button secondary" onclick="showTab('home')">← Back to Home</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Orphaned Metrics Tab -->
+        <div id="orphaned-metrics" class="tab-content">
+            <div class="form-header">
+                <h2>🗑️ Orphaned Metrics Cleanup</h2>
+                <p>Find and delete metrics whose datasource no longer exists</p>
+                <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px; margin: 15px 0; border-radius: 4px;">
+                    <strong>ℹ️ Note:</strong> Orphaned metrics are very rare! Tableau automatically deletes metrics when their datasource is deleted. This tool is useful for edge cases or manual cleanup after data migrations.
+                </div>
+                <button type="button" class="button secondary back-button" onclick="showTab('home')">← Back to Home</button>
+            </div>
+
+            <form id="orphanedMetricsForm" onsubmit="submitOrphanedMetrics(event)">
+                <!-- Site Connection Section -->
+                <div class="form-section">
+                    <h3>🔗 Site Connection</h3>
+                    <div class="form-row">
+                        <input type="text" id="orphan_host" name="server_host" placeholder="Tableau Server URL (e.g., https://your-server.com)" required>
+                        <small>💡 For Tableau Cloud: Use base URL like <code>https://eu-west-1a.online.tableau.com</code> (without /#/site/... paths)</small>
+                    </div>
+                    <div class="form-row">
+                        <input type="text" id="orphan_site" name="site_content_url" placeholder="Site Content URL (blank for Default)">
+                        <small>💡 Enter your site name (e.g., <code>mysite</code>) or leave blank for Default site</small>
+                    </div>
+                    <div class="form-row">
+                        <select id="orphan_auth_method" name="auth_method" onchange="toggleAuthFields('orphan')" required>
+                            <option value="">Select Authentication Method</option>
+                            <option value="password">Username/Password</option>
+                            <option value="pat">Personal Access Token</option>
+                        </select>
+                    </div>
+                    <div id="orphan_user_auth" class="auth-fields" style="display: none;">
+                        <div class="form-row">
+                            <input type="text" id="orphan_username" name="username" placeholder="Username">
+                        </div>
+                        <div class="form-row">
+                            <input type="password" id="orphan_password" name="password" placeholder="Password">
+                        </div>
+                    </div>
+                    <div id="orphan_pat_auth" class="auth-fields" style="display: none;">
+                        <div class="form-row">
+                            <input type="text" id="orphan_pat_name" name="pat_name" placeholder="PAT Name">
+                        </div>
+                        <div class="form-row">
+                            <input type="password" id="orphan_pat_token" name="pat_token" placeholder="PAT Token">
+                        </div>
+                    </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="orphan_use_stored" onchange="handleUseStored('orphan')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="orphan_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="button">🔍 Find Orphaned Metrics</button>
+                    <button type="button" class="button secondary" onclick="showTab('home')">← Back to Home</button>
+                </div>
+            </form>
+
+            <!-- Orphaned Metrics Results Section -->
+            <div id="orphanedResults" style="display: none; margin-top: 30px;">
+                <div class="form-section">
+                    <h3>🔍 Orphaned Metrics Found</h3>
+                    <p id="orphanedSummary"></p>
+
+                    <div id="orphanedList" style="max-height: 400px; overflow-y: auto; margin: 20px 0;">
+                        <!-- Orphaned metrics list will be populated here -->
+                    </div>
+
+                    <div class="form-section" style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 6px;">
+                        <h4 style="color: #856404; margin-bottom: 10px;">⚠️ Confirm Deletion</h4>
+                        <p style="color: #856404; margin-bottom: 15px;">This action is permanent and cannot be undone. To proceed, type <strong>CONFIRM CLEANUP</strong> below:</p>
+                        <div class="form-row">
+                            <input type="text" id="orphan_confirmation" placeholder="Type CONFIRM CLEANUP to enable deletion" style="border: 2px solid #ffc107;">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="deleteOrphanedBtn" class="button" onclick="deleteOrphanedMetrics()" disabled style="background: #dc3545;">
+                                🗑️ Delete Orphaned Metrics
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Favorite Metrics Tab -->
@@ -1676,6 +1966,18 @@
                             <input type="password" id="fav_pat_token" name="pat_token" placeholder="PAT Token">
                         </div>
                     </div>
+
+                    <!-- Authentication Storage Options -->
+                    <div class="auth-storage-section">
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="fav_use_stored" onchange="handleUseStored('fav')">
+                            <span>📋 Use stored authentication</span>
+                        </label>
+                        <label class="auth-storage-option">
+                            <input type="checkbox" id="fav_keep_auth">
+                            <span>💾 Keep authentication data (10 min)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="form-actions">
@@ -1697,6 +1999,167 @@
     </div>
 
     <script>
+        // ===================================
+        // Authentication Storage Management
+        // ===================================
+        const AUTH_STORAGE_KEY = 'tableau_pulse_auth';
+        const AUTH_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+        function saveAuthData(authData) {
+            const dataToStore = {
+                ...authData,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dataToStore));
+            updateAuthStatus();
+        }
+
+        function getStoredAuthData() {
+            const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+            if (!stored) return null;
+
+            try {
+                const data = JSON.parse(stored);
+                const age = Date.now() - data.timestamp;
+
+                // Check if expired
+                if (age > AUTH_TIMEOUT_MS) {
+                    clearStoredAuth();
+                    return null;
+                }
+
+                return data;
+            } catch (e) {
+                clearStoredAuth();
+                return null;
+            }
+        }
+
+        function clearStoredAuth() {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            updateAuthStatus();
+        }
+
+        function updateAuthStatus() {
+            const authData = getStoredAuthData();
+            const statusDiv = document.getElementById('authStatus');
+            const statusText = document.getElementById('authStatusText');
+            const expirySpan = document.getElementById('authExpiry');
+
+            if (authData) {
+                const age = Date.now() - authData.timestamp;
+                const remainingMs = AUTH_TIMEOUT_MS - age;
+                const remainingMin = Math.floor(remainingMs / 60000);
+
+                statusDiv.style.display = 'block';
+                statusText.textContent = `${authData.server_url} (${authData.site_content_url || 'Default'})`;
+                expirySpan.textContent = `(expires in ${remainingMin} min)`;
+            } else {
+                statusDiv.style.display = 'none';
+            }
+        }
+
+        function fillAuthFieldsFromStored(prefix) {
+            const authData = getStoredAuthData();
+            if (!authData) return false;
+
+            // Fill server and site fields (try multiple possible field names)
+            const hostField = document.getElementById(`${prefix}_host`) || document.getElementById(`${prefix}_server_url`);
+            const siteField = document.getElementById(`${prefix}_site`) || document.getElementById(`${prefix}_content_url`) || document.getElementById(`${prefix}_site_content_url`);
+
+            if (hostField) hostField.value = authData.server_url || '';
+            if (siteField) siteField.value = authData.site_content_url || '';
+
+            // Set auth method (map between different auth method values)
+            const authMethodField = document.getElementById(`${prefix}_auth_method`);
+            if (authMethodField) {
+                // Handle different auth method values ('pat'/'p', 'password'/'u')
+                let authMethodValue = authData.auth_method;
+                if (authData.auth_method === 'pat') {
+                    authMethodValue = 'p'; // Some forms use 'p' for PAT
+                } else if (authData.auth_method === 'password') {
+                    authMethodValue = 'u'; // Some forms use 'u' for username/password
+                }
+
+                // Try to match existing option values
+                const options = authMethodField.querySelectorAll('option');
+                let foundMatch = false;
+                for (let option of options) {
+                    if (option.value === authData.auth_method || option.value === authMethodValue) {
+                        authMethodField.value = option.value;
+                        foundMatch = true;
+                        break;
+                    }
+                }
+
+                if (!foundMatch) {
+                    authMethodField.value = authData.auth_method;
+                }
+
+                // Trigger change to show correct auth fields
+                toggleAuthFields(prefix);
+            }
+
+            // Fill credentials based on auth method
+            if (authData.auth_method === 'pat') {
+                const patNameField = document.getElementById(`${prefix}_pat_name`);
+                const patTokenField = document.getElementById(`${prefix}_pat_token`) || document.getElementById(`${prefix}_pat_secret`);
+
+                if (patNameField) patNameField.value = authData.pat_name || '';
+                if (patTokenField) patTokenField.value = authData.pat_token || '';
+            } else if (authData.auth_method === 'password' || authData.auth_method === 'u') {
+                const usernameField = document.getElementById(`${prefix}_username`);
+                const passwordField = document.getElementById(`${prefix}_password`);
+
+                if (usernameField) usernameField.value = authData.username || '';
+                if (passwordField) passwordField.value = authData.password || '';
+            }
+
+            return true;
+        }
+
+        function handleUseStored(prefix) {
+            const checkbox = document.getElementById(`${prefix}_use_stored`);
+            if (checkbox && checkbox.checked) {
+                const filled = fillAuthFieldsFromStored(prefix);
+                if (!filled) {
+                    alert('No stored authentication data found or it has expired.');
+                    checkbox.checked = false;
+                }
+            }
+        }
+
+        function captureAuthData(prefix, formData) {
+            const keepAuthCheckbox = document.getElementById(`${prefix}_keep_auth`);
+            if (keepAuthCheckbox && keepAuthCheckbox.checked) {
+                // Handle different field naming conventions
+                const authData = {
+                    server_url: formData.get(`${prefix}_host`) || formData.get('server_host') || formData.get('server_url') || '',
+                    site_content_url: formData.get(`${prefix}_content_url`) || formData.get('site_content_url') || '',
+                    auth_method: formData.get(`${prefix}_auth_method`) || formData.get('auth_method') || ''
+                };
+
+                if (authData.auth_method === 'pat' || authData.auth_method === 'p') {
+                    authData.auth_method = 'pat';
+                    authData.pat_name = formData.get(`${prefix}_pat_name`) || formData.get('pat_name') || '';
+                    authData.pat_token = formData.get(`${prefix}_pat_token`) || formData.get(`${prefix}_pat_secret`) || formData.get('pat_token') || formData.get('pat_secret') || '';
+                } else {
+                    authData.auth_method = 'password';
+                    authData.username = formData.get(`${prefix}_username`) || formData.get('username') || '';
+                    authData.password = formData.get(`${prefix}_password`) || formData.get('password') || '';
+                }
+
+                saveAuthData(authData);
+            }
+        }
+
+        // Update auth status on page load and periodically
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAuthStatus();
+            // Update every minute to keep expiry time current
+            setInterval(updateAuthStatus, 60000);
+        });
+
         // Helper function to safely parse JSON responses and handle timeouts
         async function safeJsonParse(response) {
             const contentType = response.headers.get('content-type');
@@ -1823,14 +2286,17 @@
         // Form submissions for each utility
         async function submitCopyDefinitions(event) {
             event.preventDefault();
-            
+
             const formData = new FormData(event.target);
             const data = Object.fromEntries(formData.entries());
-            
+
+            // Capture auth data if "Keep" checkbox is checked
+            captureAuthData('source', formData);
+
             // Clear previous results and show new progress
             clearPreviousResults();
             showProgress('🚀 Starting copy process...', '📊 Copy Results');
-            
+
             try {
                 const response = await fetch('/copy-definitions', {
                     method: 'POST',
@@ -1868,6 +2334,9 @@
                 if (inputMode === 'csv') {
                     // CSV Upload Mode - use FormData
                     const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('manage', formData);
                     const csvFile = document.getElementById('manage_csv_file').files[0];
                     
                     if (!csvFile) {
@@ -1952,6 +2421,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('swap', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Clear previous results and show new progress
@@ -2189,6 +2661,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('prefs', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Clear previous results and show new progress
@@ -2221,6 +2696,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('cert', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Clear previous results and show new progress
@@ -2259,6 +2737,9 @@
             try {
                 const inputMode = document.getElementById('scoped_input_mode').value;
                 const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('scoped', formData);
                 
                 let response;
                 
@@ -2350,6 +2831,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('analytics', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Clear previous results and show new progress
@@ -2598,6 +3082,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('tcm', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Clear previous results and show new progress
@@ -2644,6 +3131,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('zero', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Handle checkboxes - if checked, set to true, otherwise false
@@ -2683,6 +3173,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('raf', formData);
             const data = Object.fromEntries(formData.entries());
             
             clearPreviousResults();
@@ -2715,6 +3208,9 @@
             event.preventDefault();
             
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('export', formData);
             const data = Object.fromEntries(formData.entries());
             
             // Clear previous results and show progress
@@ -2970,6 +3466,9 @@
             event.preventDefault();
 
             const formData = new FormData(event.target);
+            
+            // Capture auth data if 'Keep' checkbox is checked
+            captureAuthData('fav', formData);
             const data = Object.fromEntries(formData.entries());
 
             clearPreviousResults();
@@ -3135,6 +3634,189 @@
                 const apiDiv = document.getElementById('apiResponse');
                 apiDiv.innerHTML = '<strong>❌ API Connection Test Failed</strong>';
                 apiDiv.style.display = 'block';
+            }
+        }
+
+        // Orphaned Metrics Functions
+        let orphanedMetricsData = [];
+        let orphanedAuthData = {};
+
+        async function submitOrphanedMetrics(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+
+            // Capture auth data if "Keep" checkbox is checked
+            captureAuthData('orphan', formData);
+
+            // Store auth data for deletion later
+            orphanedAuthData = {
+                server_url: formData.get('server_host'),
+                site_content_url: formData.get('site_content_url') || '',
+                auth_method: formData.get('auth_method'),
+                username: formData.get('username'),
+                password: formData.get('password'),
+                pat_name: formData.get('pat_name'),
+                pat_token: formData.get('pat_token')
+            };
+
+            try {
+                clearPreviousResults();
+
+                document.getElementById('resultsTitle').textContent = '🔍 Finding Orphaned Metrics...';
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('progress').innerHTML = '<div class="progress-item">Searching for orphaned metrics...</div>';
+
+                const response = await fetch('/orphaned-metrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orphanedAuthData)
+                });
+
+                const result = await safeJsonParse(response);
+
+                if (!result.success) {
+                    document.getElementById('copyResults').innerHTML =
+                        `<div class="error-box">❌ Error: ${result.error || 'Unknown error'}</div>`;
+                    if (result.traceback) {
+                        console.error('Traceback:', result.traceback);
+                    }
+                    return;
+                }
+
+                // Store orphaned metrics for deletion
+                orphanedMetricsData = result.orphaned_metrics || [];
+
+                // Hide main results and show orphaned results section
+                document.getElementById('results').style.display = 'none';
+
+                const orphanedResultsDiv = document.getElementById('orphanedResults');
+                const orphanedSummary = document.getElementById('orphanedSummary');
+                const orphanedList = document.getElementById('orphanedList');
+
+                orphanedSummary.textContent = result.summary || '';
+
+                if (orphanedMetricsData.length === 0) {
+                    orphanedList.innerHTML = '<div style="padding: 20px; text-align: center; color: #28a745; background: #d4edda; border-radius: 6px;">✅ No orphaned metrics found! All metrics have valid datasources.</div>';
+                    document.getElementById('deleteOrphanedBtn').style.display = 'none';
+                    document.getElementById('orphan_confirmation').parentElement.parentElement.style.display = 'none';
+                } else {
+                    // Build table of orphaned metrics
+                    let tableHTML = '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
+                    tableHTML += '<thead><tr style="background-color: #f8f9fa;">';
+                    tableHTML += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Metric Name</th>';
+                    tableHTML += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Definition Name</th>';
+                    tableHTML += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Missing Datasource ID</th>';
+                    tableHTML += '<th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Metric ID</th>';
+                    tableHTML += '</tr></thead><tbody>';
+
+                    orphanedMetricsData.forEach((metric, index) => {
+                        const bgColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+                        tableHTML += '<tr style="background-color: ' + bgColor + ';">';
+                        tableHTML += '<td style="padding: 8px; border: 1px solid #ddd;">' + (metric.metric_name || 'Unnamed') + '</td>';
+                        tableHTML += '<td style="padding: 8px; border: 1px solid #ddd;">' + (metric.definition_name || 'Unnamed') + '</td>';
+                        tableHTML += '<td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; font-size: 11px;">' + (metric.missing_datasource_id || 'N/A') + '</td>';
+                        tableHTML += '<td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; font-size: 11px;">' + (metric.metric_id || 'N/A') + '</td>';
+                        tableHTML += '</tr>';
+                    });
+
+                    tableHTML += '</tbody></table>';
+                    orphanedList.innerHTML = tableHTML;
+                }
+
+                orphanedResultsDiv.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error finding orphaned metrics:', error);
+                document.getElementById('copyResults').innerHTML =
+                    `<div class="error-box">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Enable delete button when confirmation text is correct
+        document.addEventListener('DOMContentLoaded', function() {
+            const confirmInput = document.getElementById('orphan_confirmation');
+            const deleteBtn = document.getElementById('deleteOrphanedBtn');
+
+            if (confirmInput && deleteBtn) {
+                confirmInput.addEventListener('input', function() {
+                    if (this.value === 'CONFIRM CLEANUP') {
+                        deleteBtn.disabled = false;
+                        deleteBtn.style.opacity = '1';
+                    } else {
+                        deleteBtn.disabled = true;
+                        deleteBtn.style.opacity = '0.5';
+                    }
+                });
+            }
+        });
+
+        async function deleteOrphanedMetrics() {
+            if (orphanedMetricsData.length === 0) {
+                alert('No orphaned metrics to delete.');
+                return;
+            }
+
+            const confirmInput = document.getElementById('orphan_confirmation');
+            if (confirmInput.value !== 'CONFIRM CLEANUP') {
+                alert('Please type CONFIRM CLEANUP to proceed with deletion.');
+                return;
+            }
+
+            try {
+                document.getElementById('orphanedResults').style.display = 'none';
+                document.getElementById('resultsTitle').textContent = '🗑️ Deleting Orphaned Metrics...';
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('progress').innerHTML = '<div class="progress-item">Deleting orphaned metrics...</div>';
+
+                const metric_ids = orphanedMetricsData.map(m => m.metric_id);
+
+                const payload = {
+                    ...orphanedAuthData,
+                    confirmation: 'CONFIRM CLEANUP',
+                    orphaned_metric_ids: metric_ids
+                };
+
+                const response = await fetch('/delete-orphaned-metrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await safeJsonParse(response);
+
+                let resultsHTML = '';
+
+                if (result.success) {
+                    resultsHTML += `<div class="success-box">✅ ${result.summary}</div>`;
+
+                    if (result.results && result.results.length > 0) {
+                        resultsHTML += '<div style="margin-top: 20px;"><h4>Deletion Details:</h4><ul style="text-align: left; max-height: 400px; overflow-y: auto;">';
+                        result.results.forEach(r => {
+                            const icon = r.success ? '✅' : '❌';
+                            resultsHTML += `<li>${icon} ${r.message}</li>`;
+                        });
+                        resultsHTML += '</ul></div>';
+                    }
+                } else {
+                    resultsHTML += `<div class="error-box">❌ Error: ${result.error || 'Unknown error'}</div>`;
+                    if (result.traceback) {
+                        console.error('Traceback:', result.traceback);
+                    }
+                }
+
+                document.getElementById('copyResults').innerHTML = resultsHTML;
+                document.getElementById('progress').innerHTML = '';
+
+                // Clear the stored data
+                orphanedMetricsData = [];
+                confirmInput.value = '';
+
+            } catch (error) {
+                console.error('Error deleting orphaned metrics:', error);
+                document.getElementById('copyResults').innerHTML =
+                    `<div class="error-box">❌ Error: ${error.message}</div>`;
             }
         }
     </script>

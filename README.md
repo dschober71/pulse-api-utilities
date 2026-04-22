@@ -1,6 +1,6 @@
 # Tableau Pulse Utilities
 
-A comprehensive web application suite for managing Tableau Pulse with twelve powerful utilities, built with Python Flask and featuring a modern, responsive UI.
+A comprehensive web application suite for managing Tableau Pulse with thirteen powerful utilities, built with Python Flask and featuring a modern, responsive UI.
 
 ## 🚀 Available Utilities
 
@@ -93,9 +93,22 @@ Get a list of metrics marked as favorites by the authenticated user
 - Displays definition name, datasource, metric type, and applied filters
 - Exports results to CSV
 
+### 13. 🗑️ Orphaned Metrics Cleanup
+Find and delete metrics whose datasource no longer exists
+- **🔍 Detect Orphaned Metrics**: Scans all metrics to find those referencing missing datasources
+- **⚠️ Very Rare**: Tableau automatically deletes metrics when datasources are removed; this tool handles edge cases
+- **🗑️ Bulk Cleanup**: Delete all orphaned metrics after confirmation
+- **🔒 Safe Deletion**: Requires typing "CONFIRM CLEANUP" before deletion proceeds
+- **📊 Detailed Reporting**: Shows which metrics are orphaned and their missing datasource IDs
+
 ## ✨ Common Features
 
 - 🔐 **Multiple Authentication**: Supports both username/password and Personal Access Token (PAT) authentication
+- 💾 **Authentication Persistence**: Store authentication credentials securely for 10 minutes to use across all tools
+  - Check "Keep authentication data" when submitting any form
+  - Check "Use stored authentication" on other tools to auto-fill credentials
+  - Automatic expiration after 10 minutes for security
+  - Clear stored credentials anytime with one click
 - 🌟 **Modern UI**: Beautiful, gradient interface with glass morphism effects and animations
 - 🚀 **Real-time Progress**: Live updates during operations
 - 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices

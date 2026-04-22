@@ -801,6 +801,16 @@ def create_scoped_metric_rest(server_url, auth_token, definition_id, metric_spec
 
 def authenticate_tableau_rest(server_url, api_version, site_content_url, auth_method, username=None, password=None, pat_name=None, pat_token=None):
     """Authenticate using XML format and return auth data."""
+    # Clean up the server URL - remove any path components like /#/site/...
+    if '/#/' in server_url:
+        server_url = server_url.split('/#/')[0]
+    if '/site/' in server_url and 'online.tableau.com' in server_url:
+        # Extract site name from URL if not provided
+        parts = server_url.split('/site/')
+        server_url = parts[0]
+        if not site_content_url and len(parts) > 1:
+            site_content_url = parts[1].split('/')[0]
+
     signin_url = f"{server_url}/api/{api_version}/auth/signin"
     
     try:
@@ -826,23 +836,23 @@ def authenticate_tableau_rest(server_url, api_version, site_content_url, auth_me
         }
         
         response = requests.post(signin_url, data=xml_request, headers=headers, verify=True, timeout=REQUEST_TIMEOUT)
-        
+
         if response.status_code == 200:
             root = ET.fromstring(response.text)
-            
+
             # Extract authentication token
             credentials = root.find('.//{http://tableau.com/api}credentials')
             if credentials is not None:
                 auth_token = credentials.get('token')
-                
+
                 # Extract site ID
                 site = credentials.find('.//{http://tableau.com/api}site')
                 site_id = site.get('id') if site is not None else None
-                
+
                 # Extract user ID
                 user = credentials.find('.//{http://tableau.com/api}user')
                 user_id = user.get('id') if user is not None else None
-                
+
                 return {
                     'success': True,
                     'auth_token': auth_token,
@@ -852,8 +862,12 @@ def authenticate_tableau_rest(server_url, api_version, site_content_url, auth_me
             else:
                 return {'success': False, 'error': 'Could not extract authentication token from response'}
         else:
-            return {'success': False, 'error': f'Authentication failed with status code: {response.status_code}'}
-            
+            # Get response text for debugging
+            error_text = response.text[:500] if response.text else "No response body"
+            return {'success': False, 'error': f'Authentication failed with status code: {response.status_code}. Response: {error_text}'}
+
+    except ET.ParseError as e:
+        return {'success': False, 'error': f'XML Parse Error: {str(e)}. Response was: {response.text[:500] if "response" in locals() else "No response"}'}
     except Exception as e:
         return {'success': False, 'error': f'Authentication error: {str(e)}'}
 
@@ -4802,6 +4816,233 @@ def favorite_metrics():
             'error': f'Unexpected error: {str(e)}',
             'traceback': tb_str
         })
+
+# ------------------------------
+# Orphaned Metrics Detection & Cleanup
+# ------------------------------
+
+def find_orphaned_metrics(definitions, all_metrics, datasource_id_to_name):
+    """
+    Find metrics whose definitions reference a missing datasource.
+
+    Args:
+        definitions: List of metric definitions
+        all_metrics: List of all metrics
+        datasource_id_to_name: Dict mapping datasource IDs to names
+
+    Returns:
+        List of orphaned metric info dicts
+    """
+    orphaned = []
+
+    # Build a map of definition_id to datasource_id
+    def_to_datasource = {}
+    for definition in definitions:
+        def_id = definition.get('id')
+        spec = definition.get('specification', {})
+        datasource = spec.get('datasource', {})
+        datasource_id = datasource.get('id')
+
+        if def_id:
+            def_to_datasource[def_id] = {
+                'datasource_id': datasource_id,
+                'definition_name': definition.get('metadata', {}).get('name', 'Unnamed'),
+                'definition_id': def_id
+            }
+
+    # Check each metric's definition for missing datasource
+    for metric in all_metrics:
+        metric_id = metric.get('id')
+        definition_id = metric.get('definition_id')
+
+        if not definition_id or definition_id not in def_to_datasource:
+            continue
+
+        def_info = def_to_datasource[definition_id]
+        datasource_id = def_info['datasource_id']
+
+        # Check if datasource exists
+        if datasource_id and datasource_id not in datasource_id_to_name:
+            orphaned.append({
+                'metric_id': metric_id,
+                'metric_name': metric.get('name', 'Unnamed Metric'),
+                'definition_id': definition_id,
+                'definition_name': def_info['definition_name'],
+                'missing_datasource_id': datasource_id
+            })
+
+    return orphaned
+
+@app.route('/orphaned-metrics', methods=['POST'])
+def list_orphaned_metrics():
+    """
+    Find and return all Pulse metrics whose definitions reference a missing datasource.
+    Expects JSON with server_url, api_version, site_content_url, and authentication info.
+    """
+    try:
+        data = request.json
+        results = []
+
+        server_url = data.get('server_url', '').rstrip('/')
+
+        # Clean up URL - extract site from URL if provided
+        if '/#/' in server_url:
+            server_url = server_url.split('/#/')[0]
+
+        site_content_url = data.get('site_content_url', '')
+
+        # Extract site from URL path for Tableau Cloud
+        if not site_content_url and '/site/' in server_url and 'online.tableau.com' in server_url:
+            parts = server_url.split('/site/')
+            if len(parts) > 1:
+                site_content_url = parts[1].split('/')[0]
+                server_url = parts[0]
+
+        api_version = data.get('api_version', '3.26')
+        auth_method = data.get('auth_method')
+        username = data.get('username')
+        password = data.get('password')
+        pat_name = data.get('pat_name')
+        pat_token = data.get('pat_token')
+
+        # Authenticate
+        results.append({'success': True, 'message': '🔐 Authenticating with Tableau Server...'})
+        try:
+            if auth_method == 'pat':
+                rest_token, site_id = sign_in_rest(server_url, site_content_url,
+                                                   pat_name=pat_name, pat_secret=pat_token)
+            else:  # password
+                rest_token, site_id = sign_in_rest(server_url, site_content_url,
+                                                   username=username, password=password)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f"Authentication failed: {str(e)}"})
+
+        # Get all datasources
+        results.append({'success': True, 'message': '🗄️ Retrieving datasource names...'})
+        datasources_result = get_all_datasources_rest(server_url, rest_token, site_id, api_version)
+        datasource_id_to_name = datasources_result['datasources'] if datasources_result['success'] else {}
+
+        # Get all definitions
+        results.append({'success': True, 'message': '📊 Retrieving all metric definitions...'})
+        definitions_result = get_metric_definitions_rest(server_url, rest_token)
+        if not definitions_result['success']:
+            return jsonify({'success': False, 'error': f"Failed to get definitions: {definitions_result['error']}"})
+        definitions = definitions_result.get('definitions', [])
+
+        # Get all metrics (from all definitions)
+        results.append({'success': True, 'message': '🔍 Retrieving metrics for all definitions...'})
+        all_metrics = []
+        for definition in definitions:
+            def_id = definition.get('id')
+            if not def_id:
+                continue
+            try:
+                metrics_result = get_metrics_for_definition_swap(server_url, def_id, rest_token)
+                if isinstance(metrics_result, list):
+                    all_metrics.extend(metrics_result)
+            except Exception as e:
+                # Some definitions might not have accessible metrics
+                results.append({'success': False, 'message': f"⚠️ Could not get metrics for definition {def_id}: {str(e)}"})
+
+        # Find orphaned metrics
+        results.append({'success': True, 'message': '🔎 Analyzing metrics for missing datasources...'})
+        orphaned = find_orphaned_metrics(definitions, all_metrics, datasource_id_to_name)
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'orphaned_metrics': orphaned,
+            'summary': f"Found {len(orphaned)} orphaned metrics out of {len(all_metrics)} total metrics."
+        })
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        return jsonify({'success': False, 'error': str(e), 'traceback': tb_str, 'error_type': type(e).__name__})
+
+@app.route('/delete-orphaned-metrics', methods=['POST'])
+def delete_orphaned_metrics():
+    """
+    Delete orphaned metrics after user confirmation.
+    Expects JSON with server_url, authentication info, and confirmation='CONFIRM CLEANUP'.
+    """
+    try:
+        data = request.json
+        results = []
+
+        # Check for confirmation
+        confirmation = data.get('confirmation', '')
+        if confirmation != 'CONFIRM CLEANUP':
+            return jsonify({
+                'success': False,
+                'error': 'Deletion requires confirmation. Please include "confirmation": "CONFIRM CLEANUP" in the request.'
+            })
+
+        server_url = data.get('server_url', '').rstrip('/')
+
+        # Clean up URL - extract site from URL if provided
+        if '/#/' in server_url:
+            server_url = server_url.split('/#/')[0]
+
+        site_content_url = data.get('site_content_url', '')
+
+        # Extract site from URL path for Tableau Cloud
+        if not site_content_url and '/site/' in server_url and 'online.tableau.com' in server_url:
+            parts = server_url.split('/site/')
+            if len(parts) > 1:
+                site_content_url = parts[1].split('/')[0]
+                server_url = parts[0]
+
+        auth_method = data.get('auth_method')
+        username = data.get('username')
+        password = data.get('password')
+        pat_name = data.get('pat_name')
+        pat_token = data.get('pat_token')
+
+        # Get the list of orphaned metric IDs to delete
+        orphaned_metric_ids = data.get('orphaned_metric_ids', [])
+        if not orphaned_metric_ids:
+            return jsonify({'success': False, 'error': 'No orphaned_metric_ids provided for deletion.'})
+
+        # Authenticate
+        results.append({'success': True, 'message': '🔐 Authenticating with Tableau Server...'})
+        try:
+            if auth_method == 'pat':
+                rest_token, _ = sign_in_rest(server_url, site_content_url,
+                                            pat_name=pat_name, pat_secret=pat_token)
+            else:  # password
+                rest_token, _ = sign_in_rest(server_url, site_content_url,
+                                            username=username, password=password)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f"Authentication failed: {str(e)}"})
+
+        # Delete each orphaned metric
+        results.append({'success': True, 'message': f'🗑️ Deleting {len(orphaned_metric_ids)} orphaned metrics...'})
+        deleted_count = 0
+        failed_count = 0
+
+        for metric_id in orphaned_metric_ids:
+            try:
+                delete_url = f"{server_url}/api/-/pulse/metrics/{metric_id}"
+                headers = {"X-Tableau-Auth": rest_token}
+                response = requests.delete(delete_url, headers=headers, timeout=REQUEST_TIMEOUT)
+
+                if response.status_code in [200, 204]:
+                    deleted_count += 1
+                    results.append({'success': True, 'message': f'✅ Deleted metric {metric_id}'})
+                else:
+                    failed_count += 1
+                    results.append({'success': False, 'message': f'❌ Failed to delete metric {metric_id}: Status {response.status_code}'})
+            except Exception as e:
+                failed_count += 1
+                results.append({'success': False, 'message': f'❌ Error deleting metric {metric_id}: {str(e)}'})
+
+        return jsonify({
+            'success': True,
+            'results': results,
+            'summary': f"Deleted {deleted_count} orphaned metrics. Failed: {failed_count}."
+        })
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        return jsonify({'success': False, 'error': str(e), 'traceback': tb_str, 'error_type': type(e).__name__})
 
 
 if __name__ == '__main__':
